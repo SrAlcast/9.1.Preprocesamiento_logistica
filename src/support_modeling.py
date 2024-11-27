@@ -31,7 +31,7 @@ import pickle
 # -----------------------------------------------------------------------
 from sklearn.model_selection import StratifiedKFold, cross_val_score, KFold
 from sklearn.preprocessing import KBinsDiscretizer
-
+from sklearn.metrics import roc_curve, roc_auc_score
 
 class AnalisisModelosClasificacion:
     def __init__(self, dataframe, variable_dependiente):
@@ -115,7 +115,7 @@ class AnalisisModelosClasificacion:
         self.resultados[modelo_nombre]["pred_test"] = grid_search.best_estimator_.predict(self.X_test)
 
         # Guardar el modelo
-        with open('mejor_modelo.pkl', 'wb') as f:
+        with open(f'mejor_modelo_{modelo_nombre}.pkl', 'wb') as f:
             pickle.dump(grid_search.best_estimator_, f)
 
     def calcular_metricas(self, modelo_nombre):
@@ -216,117 +216,20 @@ class AnalisisModelosClasificacion:
         plt.ylabel("Características")
         plt.show()
 
-import numpy as np
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import xgboost as xgb
-import seaborn as sns
-import matplotlib.pyplot as plt
+    def hacer_roc_curve(self, modelo_nombre):
+        # Calcular los puntos de la curva ROC
+        fpr, tpr, thresholds = roc_curve(self.y_test, self.resultados[modelo_nombre]["pred_test"])
 
-# Inicialización
-def dividir_conjunto(dataframe, variable_respuesta,size):
-    """
-    Divide los datos y configura los modelos.
-    """
-    X = dataframe.drop(variable_respuesta, axis=1)
-    y = dataframe[variable_respuesta]
+        # Calcular el AUC
+        auc = roc_auc_score(self.y_test, self.resultados[modelo_nombre]["pred_test"])
 
-    # División del conjunto de datos
-    x_train, x_test, y_train, y_test = train_test_split(
-        X, y, train_size=size, random_state=42, shuffle=True
-    )
-
-    return x_train, x_test, y_train, y_test,
-
-# Ajustar modelo
-def ajustar_modelo(X_train, y_train, X_test, y_test, modelos, predicciones, mejor_modelo, modelo, param_grid=None):
-    """
-    Ajusta el modelo especificado usando GridSearchCV si se proporcionan hiperparámetros.
-    """
-    if modelo not in modelos:
-        raise ValueError(f"Modelo '{modelo}' no reconocido.")
-    
-    estimator = modelos[modelo]
-
-    if param_grid:
-        grid_search = GridSearchCV(estimator, param_grid, cv=5, scoring="neg_mean_squared_error")
-        grid_search.fit(X_train, y_train)
-        mejor_modelo[modelo] = grid_search.best_estimator_
-    else:
-        estimator.fit(X_train, y_train)
-        mejor_modelo[modelo] = estimator
-
-    # Predicciones
-    predicciones[modelo]["train"] = mejor_modelo[modelo].predict(X_train)
-    predicciones[modelo]["test"] = mejor_modelo[modelo].predict(X_test)
-    return predicciones, mejor_modelo
-
-
-# Obtener resultados
-def obtener_resultados(y_train, y_test, predicciones):
-    """
-    Genera un DataFrame con las predicciones y los residuos de los modelos ajustados.
-    """
-    resultados = []
-    for modelo, pred in predicciones.items():
-        if pred["train"] is not None and pred["test"] is not None:
-            resultados.extend([
-                crear_resultados(y_train, pred["train"], "Train", modelo),
-                crear_resultados(y_test, pred["test"], "Test", modelo),
-            ])
-    if not resultados:
-        raise ValueError("Debe ajustar al menos un modelo antes de obtener resultados.")
-    return pd.concat(resultados, axis=0)
-
-# Calcular métricas
-def calcular_metricas(y_train, y_test, predicciones, modelo):
-    """
-    Calcula métricas de evaluación (R2, MAE, MSE, RMSE) para un modelo ajustado.
-    """
-    if modelo not in predicciones:
-        raise ValueError(f"Modelo '{modelo}' no reconocido.")
-
-    pred = predicciones[modelo]
-    if pred["train"] is None or pred["test"] is None:
-        raise ValueError(f"Debe ajustar el modelo '{modelo}' antes de calcular métricas.")
-
-    metricas = {
-        "train": {
-            "R2": r2_score(y_train, pred["train"]),
-            "MAE": mean_absolute_error(y_train, pred["train"]),
-            "MSE": mean_squared_error(y_train, pred["train"]),
-            "RMSE": np.sqrt(mean_squared_error(y_train, pred["train"])),
-        },
-        "test": {
-            "R2": r2_score(y_test, pred["test"]),
-            "MAE": mean_absolute_error(y_test, pred["test"]),
-            "MSE": mean_squared_error(y_test, pred["test"]),
-            "RMSE": np.sqrt(mean_squared_error(y_test, pred["test"])),
-        },
-    }
-    return pd.DataFrame(metricas)
-
-# Importancia de predictores
-def importancia_predictores(X_train, mejor_modelo, modelo):
-    """
-    Muestra y plotea la importancia de los predictores de modelos basados en árboles.
-    """
-    if modelo not in ["tree", "random_forest", "gradient_boosting", "xgboost"]:
-        raise ValueError("Solo se admite para modelos basados en árboles.")
-
-    if mejor_modelo[modelo] is None:
-        raise ValueError(f"Debe ajustar el modelo '{modelo}' antes de obtener la importancia de predictores.")
-
-    importancias = mejor_modelo[modelo].feature_importances_
-    importancia_df = pd.DataFrame({"Predictor": X_train.columns, "Importancia": importancias})
-    importancia_df = importancia_df.sort_values(by="Importancia", ascending=False)
-
-    plt.figure(figsize=(10, 6))
-    sns.barplot(x="Importancia", y="Predictor", data=importancia_df, palette="viridis")
-    plt.title(f"Importancia de Predictores - {modelo}")
-    plt.show()
-    return importancia_df
+        # Graficar la curva ROC
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {auc:.2f})")
+        plt.plot([0, 1], [0, 1], 'k--', label="Random Guess")
+        plt.xlabel("False Positive Rate (FPR)")
+        plt.ylabel("True Positive Rate (TPR)")
+        plt.title("ROC Curve")
+        plt.legend(loc="lower right")
+        plt.grid()
+        plt.show()
