@@ -40,8 +40,7 @@ class AnalisisModelosClasificacion:
         self.X = dataframe.drop(variable_dependiente, axis=1)
         self.y = dataframe[variable_dependiente]
         self.X_train, self.X_test, self.y_train, self.y_test = train_test_split(
-            self.X, self.y, train_size=0.8, random_state=42, shuffle=True
-        )
+            self.X, self.y, train_size=0.8, random_state=42, shuffle=True)
 
         # Diccionario de modelos y resultados
         self.modelos = {
@@ -107,7 +106,8 @@ class AnalisisModelosClasificacion:
         grid_search = GridSearchCV(estimator=modelo, 
                                    param_grid=param_grid, 
                                    cv=cross_validation, 
-                                   scoring='accuracy')
+                                   scoring='accuracy',
+                                   n_jobs=-1)
         
         grid_search.fit(self.X_train, self.y_train)
         self.resultados[modelo_nombre]["mejor_modelo"] = grid_search.best_estimator_
