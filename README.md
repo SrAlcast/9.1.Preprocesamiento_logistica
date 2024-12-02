@@ -14,10 +14,11 @@ Este proyecto se centra en preparar un conjunto de datos para desarrollar un mod
 ## 🗂️ Estructura del Proyecto
 
 ```
-├── data/                # Datos crudos y procesados
+├── data/                # Datos crudos
+├── models/              # modelos en formato .pkl
 ├── notebooks/           # Jupyter Notebook con las tareas de preprocesamiento
+├── results/             # Datos procesados
 ├── src/                 # Scripts para análisis y transformaciones
-├── results/             # Gráficos y tablas generados durante el análisis
 ├── README.md            # Descripción del proyecto
 ```
 
